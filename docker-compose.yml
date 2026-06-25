@@ -1,0 +1,26 @@
+  services:
+    server:
+      build: ./server
+      container_name: wealthorbit-server
+      restart: unless-stopped
+      ports:
+        - "5000:5000"
+      environment:
+        - NODE_ENV=production
+        - MONGODB_URI=${MONGODB_URI}
+        - JWT_SECRET=${JWT_SECRET}
+        - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+        - GEMINI_API_KEY=${AIzaSyCuRiMftX0hIzSAhsAAMJQH_CwDHXeBD3w}  
+        - CLIENT_URL=http://localhost:8080
+        - PORT=5000
+    client:
+      build:
+        context: ./client
+        args:
+          VITE_API_URL: /api      # frontend talks to backend via nginx proxy
+      container_name: wealthorbit-client
+      restart: unless-stopped
+      ports:
+        - "8080:80"
+      depends_on:
+        - server
