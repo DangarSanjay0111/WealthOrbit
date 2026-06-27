@@ -1,0 +1,64 @@
+name: CI
+
+# Quick checks that run BEFORE images get built: lint the client, make
+# sure both client and server compile, without needing a database or any
+# secrets. Runs on pull requests and on pushes to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  client:
+    name: Client (lint + build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Lint
+        working-directory: client
+        run: npm run lint
+
+      - name: Build
+        working-directory: client
+        run: npm run build
+
+  server:
+    name: Server (install + syntax check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      # The server needs MongoDB + env vars to actually start, so instead of
+      # booting it we parse every source file to catch syntax errors.
+      - name: Syntax check all source files
+        working-directory: server
+        run: |
+          find . -path ./node_modules -prune -o -name "*.js" -print \
+            | xargs -I {} node --check {}
+          echo "All server files parsed successfully."
