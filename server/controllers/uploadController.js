@@ -49,7 +49,7 @@ exports.uploadReport = async (req, res) => {
 
       // Use Gemini to extract structured data
       const model = new ChatGoogleGenerativeAI({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-2.5-flash',
         apiKey: process.env.GEMINI_API_KEY,
         temperature: 0
       });
@@ -103,8 +103,18 @@ ${extractedText.substring(0, 30000)}`;
       let extractedData;
 
       try {
-        let content = response.content;
+        let content = Array.isArray(response.content)
+          ? response.content.map(c => (typeof c === 'string' ? c : c.text || '')).join('')
+          : response.content;
         content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        // Extract the JSON object even if the model wraps it in prose
+        const start = content.indexOf('{');
+        const end = content.lastIndexOf('}');
+        if (start !== -1 && end !== -1 && end > start) {
+          content = content.slice(start, end + 1);
+        }
+
         extractedData = JSON.parse(content);
         console.log('[Upload] Parsed Data:', JSON.stringify(extractedData, null, 2));
       } catch (parseErr) {
