@@ -12,6 +12,11 @@
   COPY . .
   ENV NODE_ENV=production
 
+  # multer writes uploaded files to /app/uploads at runtime. COPY runs as root,
+  # so this dir is root-owned; make it writable by the non-root `node` user
+  # or every upload fails with EACCES (surfaces as "Internal server error").
+  RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+
   # documentation only; doesn't publish the port
   EXPOSE 5000      
   
