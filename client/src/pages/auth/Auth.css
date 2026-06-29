@@ -85,13 +85,14 @@
 }
 
 .auth-brand-logo {
-  width: 72px;
-  height: 72px;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  /* Caps sit lower than the line-box center; nudge the logo down so its
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  /* Caps sit lower than the line-box center; nudge the icon down so its
      centre circle lands on the optical middle of the WealthOrbit wordmark. */
-  transform: translateY(12px);
+  transform: translateY(5px);
 }
 
 .auth-brand-text {
