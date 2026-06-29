@@ -54,10 +54,12 @@ export default function Login() {
         {/* ===== Left: branding / marketing ===== */}
         <aside className="auth-brand">
           <div className="auth-brand-head">
-            <div className="sidebar-logo-icon" style={{ width: 44, height: 44 }}>
-              <Orbit size={26} />
+            <div className="sidebar-logo-icon auth-brand-logo">
+              <Orbit size={42} />
             </div>
-            <span className="auth-brand-name">WealthOrbit</span>
+            <div className="auth-brand-text">
+              <span className="auth-brand-name">WealthOrbit</span>
+            </div>
           </div>
 
           <h2 className="auth-brand-headline">
