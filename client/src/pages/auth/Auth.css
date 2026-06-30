@@ -102,10 +102,10 @@
 }
 
 .auth-brand-name {
-  font-size: var(--font-size-5xl);
+  font-size: 3.75rem;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
   background: linear-gradient(135deg, var(--primary), hsl(280, 70%, 60%));
   -webkit-background-clip: text;
   background-clip: text;
@@ -344,6 +344,10 @@
 @media (max-width: 540px) {
   .auth-feature-grid {
     grid-template-columns: 1fr;
+  }
+
+  .auth-brand-name {
+    font-size: var(--font-size-5xl);
   }
 
   .auth-brand-headline {
