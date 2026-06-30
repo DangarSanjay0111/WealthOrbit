@@ -38,8 +38,8 @@ export default function Header() {
     <header className="header">
       <div className="header-left">
         <div className="header-logo" onClick={() => navigate('/dashboard')}>
-          <Orbit size={24} className="text-primary" />
-          <span className="font-bold text-lg">WealthOrbit</span>
+          <Orbit size={30} className="text-primary" />
+          <span className="font-bold text-2xl">WealthOrbit</span>
         </div>
       </div>
 
