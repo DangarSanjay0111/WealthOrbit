@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { formatCurrency, formatPercent, formatCompact, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
 import {
   TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw,
-  Briefcase, CircleDollarSign, Gem
+  Briefcase, CircleDollarSign, Gem, Sparkles
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
