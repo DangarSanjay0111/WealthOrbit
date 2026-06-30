@@ -16,12 +16,14 @@ export default function UploadPage() {
   const [uploadHistory, setUploadHistory] = useState([]);
   const [confirming, setConfirming] = useState(false);
 
+  const ACCEPTED_EXT = ['.pdf', '.csv', '.xlsx', '.xls', '.txt'];
+
   const handleFile = (f) => {
-    if (f && (f.type === 'application/pdf' || f.name.endsWith('.pdf') || f.name.endsWith('.csv'))) {
+    if (f && ACCEPTED_EXT.some(ext => f.name.toLowerCase().endsWith(ext))) {
       setFile(f);
       setResult(null);
     } else {
-      showError('Please upload a PDF or CSV file.');
+      showError('Please upload a PDF, CSV, Excel (.xlsx/.xls) or text file.');
     }
   };
 
@@ -84,7 +86,7 @@ export default function UploadPage() {
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input ref={fileInputRef} type="file" accept=".pdf,.csv" hidden onChange={e => handleFile(e.target.files[0])} />
+          <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx,.xls,.txt" hidden onChange={e => handleFile(e.target.files[0])} />
           <div className="drop-zone-icon"><UploadIcon size={28} /></div>
           {file ? (
             <>
@@ -94,7 +96,7 @@ export default function UploadPage() {
           ) : (
             <>
               <p className="font-semibold">Drag & drop your Demat report here</p>
-              <p className="text-sm text-secondary">or click to browse — Supports PDF, CSV</p>
+              <p className="text-sm text-secondary">or click to browse — Supports PDF, CSV, Excel (.xlsx/.xls)</p>
             </>
           )}
         </div>

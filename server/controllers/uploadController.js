@@ -4,6 +4,29 @@ const { recalculateHolding } = require('./transactionController');
 const path = require('path');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
+const ExcelJS = require('exceljs');
+
+// Convert an .xlsx/.xls workbook into plain CSV-like text the AI can read.
+const extractExcelText = async (filePath) => {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+
+  const parts = [];
+  workbook.eachSheet((sheet) => {
+    const rows = [];
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const cells = [];
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        // cell.text gives the formatted/displayed value (handles dates, formulas, etc.)
+        cells.push((cell.text ?? '').toString().replace(/\s+/g, ' ').trim());
+      });
+      rows.push(cells.join(','));
+    });
+    parts.push(`Sheet: ${sheet.name}\n${rows.join('\n')}`);
+  });
+
+  return parts.join('\n\n');
+};
 
 // Lazy-load LangChain Gemini LLM (ESM module)
 let ChatGoogleGenerativeAI;
@@ -39,12 +62,25 @@ exports.uploadReport = async (req, res) => {
       await initAI();
 
       let extractedText = '';
-      if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
+      const fileName = req.file.originalname.toLowerCase();
+      const isPdf = req.file.mimetype === 'application/pdf' || fileName.endsWith('.pdf');
+      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ||
+        req.file.mimetype === 'application/vnd.ms-excel' ||
+        req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      if (isPdf) {
         const pdfBuffer = fs.readFileSync(req.file.path);
         const pdfData = await pdfParse(pdfBuffer);
         extractedText = pdfData.text;
+      } else if (isExcel) {
+        extractedText = await extractExcelText(req.file.path);
       } else {
+        // CSV / plain text
         extractedText = fs.readFileSync(req.file.path, 'utf8');
+      }
+
+      if (!extractedText || !extractedText.trim()) {
+        throw new Error('Could not read any content from the uploaded file.');
       }
 
       // Use Gemini to extract structured data

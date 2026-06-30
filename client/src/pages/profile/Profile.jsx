@@ -4,7 +4,7 @@ import { useFamily } from '../../context/FamilyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
-import { User, Shield, Moon, Sun, Users, Plus, Crown, Trash2, UserPlus, Save } from 'lucide-react';
+import { User, Shield, Moon, Sun, Users, Plus, Crown, Trash2, UserPlus, Save, Mail, Pencil } from 'lucide-react';
 import './Profile.css';
 
 export default function Profile() {
@@ -126,6 +126,22 @@ export default function Profile() {
     <div className="page-container">
       <div className="page-header">
         <h1 className="page-title"><User size={28} /> Profile & Settings</h1>
+      </div>
+
+      {/* Profile Hero */}
+      <div className="profile-hero">
+        <div className="profile-hero-banner">
+          <button className="profile-edit-btn" type="button" title="Edit profile"><Pencil size={16} /></button>
+        </div>
+        <div className="profile-hero-body">
+          <div className="profile-hero-avatar">
+            <User size={40} strokeWidth={2} />
+          </div>
+          <div className="profile-hero-info">
+            <h2 className="profile-hero-name">{user?.firstName || ''} {user?.lastName || ''}</h2>
+            <p className="profile-hero-email"><Mail size={15} /> {user?.email || ''}</p>
+          </div>
+        </div>
       </div>
 
       <div className="profile-grid">
