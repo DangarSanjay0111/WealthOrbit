@@ -1,5 +1,190 @@
 /* Dashboard specific styles */
 
+/* ============================================
+   HERO WELCOME BANNER
+   ============================================ */
+.hero-banner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-8) var(--space-10);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-secondary);
+  background:
+    radial-gradient(120% 140% at 100% 0%, hsla(250, 75%, 62%, 0.14) 0%, transparent 55%),
+    linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+  overflow: hidden;
+}
+
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -5%;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, hsla(250, 75%, 62%, 0.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-greeting-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--primary-muted);
+  color: var(--primary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: var(--space-4);
+}
+
+.hero-title {
+  font-size: var(--font-size-4xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin-bottom: var(--space-3);
+}
+
+.hero-name {
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-wave {
+  -webkit-text-fill-color: initial;
+  display: inline-block;
+  animation: wave 2.2s ease-in-out infinite;
+  transform-origin: 70% 70%;
+}
+
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+}
+
+.hero-subtitle {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.hero-refresh {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   STAT CARDS
+   ============================================ */
+.stat-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-muted);
+}
+
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-card-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: var(--space-3);
+}
+
+.stat-card-value {
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.stat-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-3);
+}
+
+.stat-card-meta.gain {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.stat-card-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.icon-purple-solid {
+  background: linear-gradient(135deg, hsl(258, 75%, 58%) 0%, hsl(250, 75%, 50%) 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px hsla(250, 75%, 55%, 0.35);
+}
+
+.icon-green-solid {
+  background: linear-gradient(135deg, hsl(155, 55%, 52%) 0%, hsl(160, 60%, 44%) 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px hsla(160, 60%, 45%, 0.35);
+}
+
+.icon-purple-soft {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+
+
 /* View toggle */
 .view-toggle {
   display: flex;

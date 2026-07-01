@@ -4,8 +4,8 @@ import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { formatCurrency, formatPercent, formatCompact, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
 import {
-  TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw,
-  Briefcase, CircleDollarSign, Gem, Sparkles
+  TrendingUp, Wallet, BarChart3, RefreshCw,
+  Briefcase, CircleDollarSign, Gem, Sparkles, PiggyBank
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -14,6 +14,13 @@ import {
 import './Dashboard.css';
 
 const PERIODS = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good Morning';
+  if (h < 17) return 'Good Afternoon';
+  return 'Good Evening';
+};
 
 const assetIcons = {
   stock: Briefcase,
@@ -84,22 +91,79 @@ export default function Dashboard() {
     fill: item.color
   }));
 
+  const activeAssets = allocationData.filter(a => a.value > 0).length;
+  const assetClassCount = Object.keys(assetTypeLabels).length;
+  const growth = parseFloat(currentData.profitLossPercent) || 0;
+
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">
-            <Wallet size={28} /> Dashboard
+      {/* Hero Welcome Banner */}
+      <div className="hero-banner mb-6">
+        <div className="hero-content">
+          <div className="hero-greeting-badge">
+            <Sparkles size={14} />
+            <span>{getGreeting()}</span>
+          </div>
+          <h1 className="hero-title">
+            Welcome back, <span className="hero-name">{user?.firstName}</span> <span className="hero-wave">👋</span>
           </h1>
-          <p className="page-subtitle">
-            Welcome back, {user?.firstName}
-          </p>
+          <p className="hero-subtitle">Here's your financial portfolio at a glance</p>
+        </div>
+        <button className="btn btn-outline btn-sm hero-refresh" onClick={fetchData}>
+          <RefreshCw size={14} /> Refresh
+        </button>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid-4 mb-8">
+        <div className="stat-card">
+          <div className="stat-card-body">
+            <span className="stat-card-label">Total Wealth</span>
+            <span className="stat-card-value">{formatCurrency(currentData.totalWealth)}</span>
+            <span className="stat-card-meta gain">
+              <span className="stat-dot" />
+              +{formatCurrency(currentData.totalProfitLoss)} this year
+            </span>
+          </div>
+          <div className="stat-card-icon icon-purple-solid">
+            <Wallet size={22} />
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="btn btn-outline btn-sm" onClick={fetchData}>
-            <RefreshCw size={14} /> Refresh
-          </button>
+        <div className="stat-card">
+          <div className="stat-card-body">
+            <span className="stat-card-label">Growth Rate</span>
+            <span className="stat-card-value">{formatPercent(growth)}</span>
+            <span className="stat-card-meta gain">
+              <span className="stat-dot" />
+              Year-to-date
+            </span>
+          </div>
+          <div className="stat-card-icon icon-green-solid">
+            <TrendingUp size={22} />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-body">
+            <span className="stat-card-label">Total Invested</span>
+            <span className="stat-card-value">{formatCurrency(currentData.totalInvested)}</span>
+            <span className="stat-card-meta">Across {assetClassCount} assets</span>
+          </div>
+          <div className="stat-card-icon icon-purple-soft">
+            <PiggyBank size={22} />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-body">
+            <span className="stat-card-label">Active Assets</span>
+            <span className="stat-card-value">{activeAssets}</span>
+            <span className="stat-card-meta">Diversified portfolio</span>
+          </div>
+          <div className="stat-card-icon icon-purple-soft">
+            <BarChart3 size={22} />
+          </div>
         </div>
       </div>
 
@@ -114,39 +178,6 @@ export default function Dashboard() {
             {p}
           </button>
         ))}
-      </div>
-
-      {/* Wealth Overview Cards */}
-      <div className="grid-4 mb-6">
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total Wealth</div>
-          <div className="wealth-card-value">{formatCurrency(currentData.totalWealth)}</div>
-          <div className="wealth-card-sub">{currentData.holdingsCount || 0} holdings</div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total Invested</div>
-          <div className="wealth-card-value">{formatCurrency(currentData.totalInvested)}</div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total P&L</div>
-          <div className={`wealth-card-value ${getPnLClass(currentData.totalProfitLoss)}`}>
-            {currentData.totalProfitLoss >= 0 ? (
-              <TrendingUp size={22} style={{ marginRight: 6 }} />
-            ) : (
-              <TrendingDown size={22} style={{ marginRight: 6 }} />
-            )}
-            {formatCurrency(currentData.totalProfitLoss)}
-          </div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Returns</div>
-          <div className={`wealth-card-value ${getPnLClass(parseFloat(currentData.profitLossPercent))}`}>
-            {formatPercent(currentData.profitLossPercent)}
-          </div>
-        </div>
       </div>
 
       {/* Charts Row */}
