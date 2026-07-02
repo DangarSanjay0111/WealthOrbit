@@ -6,13 +6,14 @@ import api from '../../services/api';
 import { formatCurrency, formatPercent, formatCompact, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
 import {
   TrendingUp, TrendingDown, Wallet, Users, BarChart3, RefreshCw,
-  Briefcase, CircleDollarSign, Gem, ChevronDown
+  Briefcase, CircleDollarSign, Gem, ChevronDown, PiggyBank
 } from 'lucide-react';
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { Link } from 'react-router-dom';
+import AnimatedNumber from '../../components/common/AnimatedNumber';
 import '../dashboard/Dashboard.css';
 
 const PERIODS = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
@@ -128,57 +129,116 @@ export default function Family() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <div className="flex items-center gap-4">
-            {families.length > 1 ? (
-              <div className="dropdown" ref={familyMenuRef} style={{ position: 'relative' }}>
-                <h1 
-                  className="page-title flex items-center gap-3 mb-0" 
-                  style={{ marginBottom: 0, cursor: 'pointer', transition: 'opacity 0.2s' }}
-                  onClick={() => setShowFamilyMenu(!showFamilyMenu)}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  <Users size={28} />
-                  {activeFamily.name} Overview
-                  <ChevronDown size={20} className="text-secondary" />
-                </h1>
-
-                {showFamilyMenu && (
-                  <div className="dropdown-menu" style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', zIndex: 10, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', minWidth: '220px', overflow: 'hidden' }}>
-                    {families.map(f => (
-                      <button
-                        key={f._id}
-                        className={`dropdown-item flex items-center justify-between w-full p-3 text-left transition-colors ${f._id === activeFamily._id ? 'bg-primary-light font-medium' : 'hover:bg-gray-50'}`}
-                        onClick={() => { switchFamily(f); setShowFamilyMenu(false); }}
-                        style={{ borderBottom: '1px solid var(--border-color)', background: f._id === activeFamily._id ? 'var(--primary-light)' : 'transparent', border: 'none', padding: '12px 16px', cursor: 'pointer', width: '100%', textAlign: 'left' }}
-                      >
-                        <span style={{ color: f._id === activeFamily._id ? 'var(--primary)' : 'inherit' }}>{f.name}</span>
-                        <span className={`badge ${f._id === activeFamily._id ? 'badge-primary' : 'badge-neutral'}`} style={{ fontSize: '11px' }}>{f.role}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <h1 className="page-title flex items-center gap-3 mb-0" style={{ marginBottom: 0 }}>
-                <Users size={28} />
-                {activeFamily.name} Overview
-              </h1>
-            )}
+      {/* Hero Banner */}
+      <div className="hero-banner mb-6">
+        <div className="hero-content">
+          <div className="hero-greeting-badge">
+            <Users size={14} />
+            <span>Family Overview</span>
           </div>
-          <p className="page-subtitle mt-1" style={{ marginTop: '4px' }}>
-            Combined wealth of all family members
-          </p>
-        </div>
+          {families.length > 1 ? (
+            <div className="dropdown" ref={familyMenuRef} style={{ position: 'relative', display: 'inline-block' }}>
+              <h1
+                className="hero-title"
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '10px' }}
+                onClick={() => setShowFamilyMenu(!showFamilyMenu)}
+              >
+                <span className="hero-name">{activeFamily.name}'s</span> Family Overview
+                <ChevronDown size={22} className="text-secondary" />
+              </h1>
 
-        <div className="flex items-center gap-3">
-          <button className="btn btn-outline btn-sm" onClick={fetchData}>
-            <RefreshCw size={14} /> Refresh
-          </button>
+              {showFamilyMenu && (
+                <div className="dropdown-menu" style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', zIndex: 10, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', minWidth: '220px', overflow: 'hidden' }}>
+                  {families.map(f => (
+                    <button
+                      key={f._id}
+                      className={`dropdown-item flex items-center justify-between w-full p-3 text-left transition-colors ${f._id === activeFamily._id ? 'bg-primary-light font-medium' : 'hover:bg-gray-50'}`}
+                      onClick={() => { switchFamily(f); setShowFamilyMenu(false); }}
+                      style={{ borderBottom: '1px solid var(--border-color)', background: f._id === activeFamily._id ? 'var(--primary-light)' : 'transparent', border: 'none', padding: '12px 16px', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+                    >
+                      <span style={{ color: f._id === activeFamily._id ? 'var(--primary)' : 'inherit' }}>{f.name}</span>
+                      <span className={`badge ${f._id === activeFamily._id ? 'badge-primary' : 'badge-neutral'}`} style={{ fontSize: '11px' }}>{f.role}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <h1 className="hero-title">
+              <span className="hero-name">{activeFamily.name}'s</span> Family Overview
+            </h1>
+          )}
+          <p className="hero-subtitle">Combined wealth of all family members</p>
         </div>
       </div>
+
+      {/* Stat Cards */}
+      {!familySummary ? (
+        <div className="grid-4 mb-8" key="stats-loading">
+          {[0, 1, 2, 3].map(i => (
+            <div className="stat-card" key={i}>
+              <div className="stat-card-body" style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '55%' }} />
+                <div className="skeleton skeleton-heading" style={{ width: '75%', marginTop: 8 }} />
+                <div className="skeleton skeleton-text" style={{ width: '45%', marginTop: 10 }} />
+              </div>
+              <div className="skeleton" style={{ width: 52, height: 52, borderRadius: 'var(--radius-lg)' }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid-4 mb-8" key="stats-loaded">
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Total Family Wealth</span>
+              <AnimatedNumber className="stat-card-value" value={currentData.totalWealth || 0} format={formatCurrency} />
+              <span className={`stat-card-meta ${(currentData.totalProfitLoss || 0) >= 0 ? 'gain' : 'loss'}`}>
+                <span className="stat-dot" />
+                {(currentData.totalProfitLoss || 0) >= 0 ? '+' : ''}{formatCurrency(currentData.totalProfitLoss || 0)} this year
+              </span>
+            </div>
+            <div className="stat-card-icon icon-purple-solid">
+              <Wallet size={22} />
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Returns</span>
+              <AnimatedNumber className="stat-card-value" value={parseFloat(currentData.profitLossPercent) || 0} format={formatPercent} />
+              <span className={`stat-card-meta ${(parseFloat(currentData.profitLossPercent) || 0) >= 0 ? 'gain' : 'loss'}`}>
+                <span className="stat-dot" />
+                Year-to-date
+              </span>
+            </div>
+            <div className={`stat-card-icon ${(parseFloat(currentData.profitLossPercent) || 0) >= 0 ? 'icon-green-solid' : 'icon-red-solid'}`}>
+              {(parseFloat(currentData.profitLossPercent) || 0) >= 0 ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Total Invested</span>
+              <AnimatedNumber className="stat-card-value" value={currentData.totalInvested || 0} format={formatCurrency} />
+              <span className="stat-card-meta">{currentData.holdingsCount || 0} combined holdings</span>
+            </div>
+            <div className="stat-card-icon icon-purple-soft">
+              <PiggyBank size={22} />
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Family Members</span>
+              <AnimatedNumber className="stat-card-value" value={familyMembers.length} format={(v) => Math.round(v)} />
+              <span className="stat-card-meta">Contributing members</span>
+            </div>
+            <div className="stat-card-icon icon-purple-soft">
+              <Users size={22} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Period Toggle */}
       <div className="tab-bar" style={{ maxWidth: 360 }}>
@@ -191,39 +251,6 @@ export default function Family() {
             {p}
           </button>
         ))}
-      </div>
-
-      {/* Wealth Overview Cards */}
-      <div className="grid-4 mb-6">
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total Family Wealth</div>
-          <div className="wealth-card-value">{formatCurrency(currentData.totalWealth || 0)}</div>
-          <div className="wealth-card-sub">{currentData.holdingsCount || 0} combined holdings</div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total Invested</div>
-          <div className="wealth-card-value">{formatCurrency(currentData.totalInvested || 0)}</div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Total P&L</div>
-          <div className={`wealth-card-value ${getPnLClass(currentData.totalProfitLoss || 0)}`}>
-            {(currentData.totalProfitLoss || 0) >= 0 ? (
-              <TrendingUp size={22} style={{ marginRight: 6 }} />
-            ) : (
-              <TrendingDown size={22} style={{ marginRight: 6 }} />
-            )}
-            {formatCurrency(currentData.totalProfitLoss || 0)}
-          </div>
-        </div>
-
-        <div className="card card-hoverable wealth-card">
-          <div className="wealth-card-label">Returns</div>
-          <div className={`wealth-card-value ${getPnLClass(parseFloat(currentData.profitLossPercent || 0))}`}>
-            {formatPercent(currentData.profitLossPercent || 0)}
-          </div>
-        </div>
       </div>
 
       {/* Charts Row */}
