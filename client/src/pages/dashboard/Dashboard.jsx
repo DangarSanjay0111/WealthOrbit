@@ -3,9 +3,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { formatCurrency, formatPercent, formatCompact, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
+import { Link } from 'react-router-dom';
+import AnimatedNumber from '../../components/common/AnimatedNumber';
 import {
-  TrendingUp, Wallet, BarChart3, RefreshCw,
-  Briefcase, CircleDollarSign, Gem, Sparkles, PiggyBank
+  TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw,
+  Briefcase, CircleDollarSign, Gem, Sparkles, PiggyBank, ArrowUpRight
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -31,6 +33,15 @@ const assetIcons = {
   other_income: TrendingUp
 };
 
+const assetVisuals = {
+  stock:         { emoji: '📈', gradient: 'linear-gradient(90deg, #6366f1, #3b82f6)', tint: 'hsla(221, 83%, 60%, 0.12)' },
+  mutual_fund:   { emoji: '📊', gradient: 'linear-gradient(90deg, #a855f7, #ec4899)', tint: 'hsla(322, 84%, 60%, 0.12)' },
+  gold:          { emoji: '🥇', gradient: 'linear-gradient(90deg, #f59e0b, #fbbf24)', tint: 'hsla(43, 96%, 56%, 0.16)' },
+  silver:        { emoji: '🥈', gradient: 'linear-gradient(90deg, #94a3b8, #cbd5e1)', tint: 'hsla(215, 20%, 65%, 0.18)' },
+  fixed_deposit: { emoji: '🏦', gradient: 'linear-gradient(90deg, #06b6d4, #6366f1)', tint: 'hsla(189, 94%, 43%, 0.14)' },
+  other_income:  { emoji: '💰', gradient: 'linear-gradient(90deg, #f97316, #f59e0b)', tint: 'hsla(25, 95%, 53%, 0.14)' },
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { error: showError, success } = useToast();
@@ -46,7 +57,7 @@ export default function Dashboard() {
 
   const fetchSnapshots = async () => {
     try {
-      const { data } = await api.get(`/portfolio/snapshots?period=${activePeriod}`);
+      const { data } = await api.get(`/portfolio/timeline?period=${activePeriod}`);
       const formattedData = data.snapshots.map(s => ({
         date: new Date(s.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
         value: s.totalWealth
@@ -91,6 +102,16 @@ export default function Dashboard() {
     fill: item.color
   }));
 
+  const growthComparisonData = Object.entries(assetTypeLabels).map(([key, label]) => {
+    const b = currentData.assetBreakdown?.[key] || { invested: 0, currentValue: 0 };
+    return {
+      name: label,
+      invested: b.invested,
+      currentValue: b.currentValue,
+      color: assetTypeColors[key],
+    };
+  });
+
   const activeAssets = allocationData.filter(a => a.value > 0).length;
   const assetClassCount = Object.keys(assetTypeLabels).length;
   const growth = parseFloat(currentData.profitLossPercent) || 0;
@@ -109,63 +130,75 @@ export default function Dashboard() {
           </h1>
           <p className="hero-subtitle">Here's your financial portfolio at a glance</p>
         </div>
-        <button className="btn btn-outline btn-sm hero-refresh" onClick={fetchData}>
-          <RefreshCw size={14} /> Refresh
-        </button>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid-4 mb-8">
-        <div className="stat-card">
-          <div className="stat-card-body">
-            <span className="stat-card-label">Total Wealth</span>
-            <span className="stat-card-value">{formatCurrency(currentData.totalWealth)}</span>
-            <span className="stat-card-meta gain">
-              <span className="stat-dot" />
-              +{formatCurrency(currentData.totalProfitLoss)} this year
-            </span>
-          </div>
-          <div className="stat-card-icon icon-purple-solid">
-            <Wallet size={22} />
-          </div>
+      {!summary ? (
+        <div className="grid-4 mb-8" key="stats-loading">
+          {[0, 1, 2, 3].map(i => (
+            <div className="stat-card" key={i}>
+              <div className="stat-card-body" style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '55%' }} />
+                <div className="skeleton skeleton-heading" style={{ width: '75%', marginTop: 8 }} />
+                <div className="skeleton skeleton-text" style={{ width: '45%', marginTop: 10 }} />
+              </div>
+              <div className="skeleton" style={{ width: 52, height: 52, borderRadius: 'var(--radius-lg)' }} />
+            </div>
+          ))}
         </div>
+      ) : (
+        <div className="grid-4 mb-8" key="stats-loaded">
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Total Wealth</span>
+              <AnimatedNumber className="stat-card-value" value={currentData.totalWealth} format={formatCurrency} />
+              <span className={`stat-card-meta ${currentData.totalProfitLoss >= 0 ? 'gain' : 'loss'}`}>
+                <span className="stat-dot" />
+                {currentData.totalProfitLoss >= 0 ? '+' : ''}{formatCurrency(currentData.totalProfitLoss)} this year
+              </span>
+            </div>
+            <div className="stat-card-icon icon-purple-solid">
+              <Wallet size={22} />
+            </div>
+          </div>
 
-        <div className="stat-card">
-          <div className="stat-card-body">
-            <span className="stat-card-label">Growth Rate</span>
-            <span className="stat-card-value">{formatPercent(growth)}</span>
-            <span className="stat-card-meta gain">
-              <span className="stat-dot" />
-              Year-to-date
-            </span>
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Growth Rate</span>
+              <AnimatedNumber className="stat-card-value" value={growth} format={formatPercent} />
+              <span className={`stat-card-meta ${growth >= 0 ? 'gain' : 'loss'}`}>
+                <span className="stat-dot" />
+                Year-to-date
+              </span>
+            </div>
+            <div className={`stat-card-icon ${growth >= 0 ? 'icon-green-solid' : 'icon-red-solid'}`}>
+              {growth >= 0 ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
+            </div>
           </div>
-          <div className="stat-card-icon icon-green-solid">
-            <TrendingUp size={22} />
-          </div>
-        </div>
 
-        <div className="stat-card">
-          <div className="stat-card-body">
-            <span className="stat-card-label">Total Invested</span>
-            <span className="stat-card-value">{formatCurrency(currentData.totalInvested)}</span>
-            <span className="stat-card-meta">Across {assetClassCount} assets</span>
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Total Invested</span>
+              <AnimatedNumber className="stat-card-value" value={currentData.totalInvested} format={formatCurrency} />
+              <span className="stat-card-meta">Across {assetClassCount} assets</span>
+            </div>
+            <div className="stat-card-icon icon-purple-soft">
+              <PiggyBank size={22} />
+            </div>
           </div>
-          <div className="stat-card-icon icon-purple-soft">
-            <PiggyBank size={22} />
-          </div>
-        </div>
 
-        <div className="stat-card">
-          <div className="stat-card-body">
-            <span className="stat-card-label">Active Assets</span>
-            <span className="stat-card-value">{activeAssets}</span>
-            <span className="stat-card-meta">Diversified portfolio</span>
-          </div>
-          <div className="stat-card-icon icon-purple-soft">
-            <BarChart3 size={22} />
+          <div className="stat-card">
+            <div className="stat-card-body">
+              <span className="stat-card-label">Active Assets</span>
+              <AnimatedNumber className="stat-card-value" value={activeAssets} format={(v) => Math.round(v)} />
+              <span className="stat-card-meta">Diversified portfolio</span>
+            </div>
+            <div className="stat-card-icon icon-purple-soft">
+              <BarChart3 size={22} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Period Toggle */}
       <div className="tab-bar" style={{ maxWidth: 360 }}>
@@ -217,7 +250,7 @@ export default function Dashboard() {
                       fontSize: 'var(--font-size-sm)',
                       color: 'var(--text-primary)'
                     }}
-                    formatter={(v) => [formatCurrency(v), 'Value']}
+                    formatter={(v) => [formatCurrency(v), 'Invested']}
                   />
                   <Area
                     type="monotone" dataKey="value"
@@ -229,7 +262,7 @@ export default function Dashboard() {
             ) : (
               <div className="empty-state" style={{ minHeight: 280 }}>
                 <TrendingUp size={36} className="text-secondary mb-3 opacity-50" />
-                <p className="text-secondary text-sm">No historical data available yet.<br/>Check back tomorrow.</p>
+                <p className="text-secondary text-sm">No transactions yet.<br/>Add a buy or sell to see your growth.</p>
               </div>
             )}
           </div>
@@ -280,17 +313,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Asset Class Performance Bar Chart */}
+      {/* Asset-wise Growth Comparison Bar Chart */}
       <div className="card mb-6">
         <div className="card-header">
-          <span className="card-title">Asset Class Distribution</span>
+          <div>
+            <span className="card-title">Asset-wise Growth Comparison</span>
+            <p className="card-subtitle">Initial Investment vs Current Value</p>
+          </div>
         </div>
         <div className="chart-container">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={barData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" />
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={growthComparisonData} barGap={6}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-secondary)" vertical={false} />
               <XAxis
-                dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
+                dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }}
                 axisLine={{ stroke: 'var(--border-secondary)' }}
                 tickLine={false}
               />
@@ -300,6 +336,7 @@ export default function Dashboard() {
                 tickFormatter={v => formatCompact(v)}
               />
               <Tooltip
+                cursor={{ fill: 'var(--bg-hover, rgba(0,0,0,0.04))' }}
                 contentStyle={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border-primary)',
@@ -307,11 +344,17 @@ export default function Dashboard() {
                   fontSize: 'var(--font-size-sm)',
                   color: 'var(--text-primary)'
                 }}
-                formatter={(v) => formatCurrency(v)}
+                formatter={(v, name) => [formatCurrency(v), name]}
               />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {barData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                formatter={(val) => <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{val}</span>}
+              />
+              <Bar dataKey="invested" name="Initial Investment" fill="#d1d5db" radius={[6, 6, 0, 0]} maxBarSize={44} />
+              <Bar dataKey="currentValue" name="Current Value" fill="var(--color-mf)" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {growthComparisonData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
@@ -319,55 +362,56 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Asset Class Cards */}
-      <h2 className="text-lg font-semibold mb-4">Asset Classes</h2>
+      {/* Your Assets */}
+      <div className="section-header">
+        <div className="section-header-icon"><BarChart3 size={20} /></div>
+        <h2 className="section-header-title">Your Assets</h2>
+      </div>
       <div className="grid-3 mb-6">
         {Object.entries(assetTypeLabels).map(([key, label]) => {
-          const Icon = assetIcons[key] || Wallet;
-          const value = currentData.assetAllocation?.[key] || 0;
-          const pct = currentData.totalWealth > 0
-            ? ((value / currentData.totalWealth) * 100).toFixed(1)
-            : 0;
+          const v = assetVisuals[key] || {};
+          const b = currentData.assetBreakdown?.[key] || { invested: 0, currentValue: 0, profitLoss: 0, count: 0 };
+          const pct = b.invested > 0 ? ((b.profitLoss / b.invested) * 100).toFixed(2) : '0.00';
+          const positive = b.profitLoss >= 0;
 
           return (
-            <div className="card card-hoverable asset-class-card" key={key}>
-              <div className="asset-class-icon" style={{ background: `${assetTypeColors[key]}22`, color: assetTypeColors[key] }}>
-                <Icon size={22} />
+            <div className="asset-tile" key={key} style={{ '--tile-tint': v.tint }}>
+              <div className="asset-tile-bar" style={{ background: v.gradient }} />
+              <div className="asset-tile-top">
+                <div className="asset-tile-head">
+                  <span className="asset-tile-emoji">{v.emoji}</span>
+                  <div>
+                    <div className="asset-tile-name">{label}</div>
+                    <div className="asset-tile-count">{b.count} transaction{b.count === 1 ? '' : 's'}</div>
+                  </div>
+                </div>
+                <span className={`asset-tile-badge ${positive ? 'up' : 'down'}`}>
+                  <TrendingUp size={12} /> {positive ? '+' : ''}{pct}%
+                </span>
               </div>
-              <div className="asset-class-info">
-                <span className="asset-class-label">{label}</span>
-                <span className="asset-class-value">{formatCurrency(value)}</span>
-                <span className="text-xs text-secondary">{pct}% of portfolio</span>
+              <div className="asset-tile-row">
+                <span className="asset-tile-key">Invested</span>
+                <span className="asset-tile-val">{formatCurrency(b.invested)}</span>
               </div>
+              <div className="asset-tile-row">
+                <span className="asset-tile-key">Current Value</span>
+                <span className="asset-tile-val strong">{formatCurrency(b.currentValue)}</span>
+              </div>
+              <div className="asset-tile-divider" />
+              <div className="asset-tile-row">
+                <span className="asset-tile-key">Profit/Loss</span>
+                <span className={positive ? 'text-gain' : 'text-loss'} style={{ fontWeight: 700 }}>
+                  {positive ? '+' : ''}{formatCurrency(b.profitLoss)}
+                </span>
+              </div>
+              <Link to="/portfolio" className="asset-tile-details">
+                View details <ArrowUpRight size={14} />
+              </Link>
             </div>
           );
         })}
       </div>
 
-
-
-      {/* Yearly Summary */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Yearly Summary {new Date().getFullYear()}</span>
-        </div>
-        <div className="grid-3" style={{ gap: 'var(--space-4)' }}>
-          <div className="summary-stat">
-            <span className="summary-stat-label">Total Portfolio Value</span>
-            <span className="summary-stat-value">{formatCurrency(currentData.totalWealth)}</span>
-          </div>
-          <div className="summary-stat">
-            <span className="summary-stat-label">Total Invested</span>
-            <span className="summary-stat-value">{formatCurrency(currentData.totalInvested)}</span>
-          </div>
-          <div className="summary-stat">
-            <span className="summary-stat-label">Overall Returns</span>
-            <span className={`summary-stat-value ${getPnLClass(parseFloat(currentData.profitLossPercent))}`}>
-              {formatPercent(currentData.profitLossPercent)}
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
