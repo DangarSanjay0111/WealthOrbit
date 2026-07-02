@@ -127,6 +127,7 @@ exports.getPortfolioSummary = async (req, res) => {
     let totalInvested = 0;
     let totalProfitLoss = 0;
     const assetAllocation = {};
+    const assetBreakdown = {};
 
     holdings.forEach(h => {
       totalWealth += h.currentValue || 0;
@@ -137,6 +138,14 @@ exports.getPortfolioSummary = async (req, res) => {
         assetAllocation[h.assetType] = 0;
       }
       assetAllocation[h.assetType] += h.currentValue || 0;
+
+      if (!assetBreakdown[h.assetType]) {
+        assetBreakdown[h.assetType] = { invested: 0, currentValue: 0, profitLoss: 0, count: 0 };
+      }
+      assetBreakdown[h.assetType].invested += h.totalInvested || 0;
+      assetBreakdown[h.assetType].currentValue += h.currentValue || 0;
+      assetBreakdown[h.assetType].profitLoss += h.profitLoss || 0;
+      assetBreakdown[h.assetType].count += 1;
     });
 
     res.json({
@@ -147,6 +156,7 @@ exports.getPortfolioSummary = async (req, res) => {
         ? ((totalProfitLoss / totalInvested) * 100).toFixed(2)
         : 0,
       assetAllocation,
+      assetBreakdown,
       holdingsCount: holdings.length
     });
   } catch (error) {
@@ -246,6 +256,69 @@ exports.getSnapshots = async (req, res) => {
   }
 };
 
+// GET /api/portfolio/timeline — Build wealth timeline from actual transactions
+exports.getTransactionTimeline = async (req, res) => {
+  try {
+    const Transaction = require('../models/Transaction');
+    const { period = 'Monthly' } = req.query;
+
+    let daysToFetch = 30;
+    if (period === 'Weekly') daysToFetch = 7;
+    if (period === 'Yearly') daysToFetch = 365;
+    if (period === 'Daily') daysToFetch = 14;
+
+    const transactions = await Transaction.find({ userId: req.userId }).sort({ date: 1 });
+
+    if (!transactions.length) {
+      return res.json({ snapshots: [] });
+    }
+
+    // Build a cumulative "money invested" series across full history.
+    // A buy adds its amount on its date; a sell subtracts its amount on its date.
+    let cumulative = 0;
+    const dailyMap = new Map(); // dayKey (UTC midnight ISO) -> cumulative value at end of that day
+    transactions.forEach(t => {
+      const delta = t.type === 'sell' ? -(t.totalAmount || 0) : (t.totalAmount || 0);
+      cumulative += delta;
+      const d = new Date(t.date);
+      const key = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
+      dailyMap.set(key, cumulative); // last write per day wins → end-of-day balance
+    });
+
+    const fullSeries = Array.from(dailyMap.entries())
+      .map(([date, value]) => ({ date, totalWealth: value }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Window the series to the requested period.
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysToFetch);
+    startDate.setHours(0, 0, 0, 0);
+
+    const before = fullSeries.filter(p => new Date(p.date) < startDate);
+    const within = fullSeries.filter(p => new Date(p.date) >= startDate);
+
+    const series = [];
+    // Baseline: carry the last value from before the window so the line starts correctly.
+    if (before.length) {
+      series.push({ date: startDate.toISOString(), totalWealth: before[before.length - 1].totalWealth });
+    }
+    series.push(...within);
+
+    // Extend the line to today with the latest cumulative value.
+    const finalVal = fullSeries[fullSeries.length - 1].totalWealth;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastPointDate = series.length ? new Date(series[series.length - 1].date) : null;
+    if (!lastPointDate || lastPointDate.getTime() !== today.getTime()) {
+      series.push({ date: today.toISOString(), totalWealth: finalVal });
+    }
+
+    res.json({ snapshots: series });
+  } catch (error) {
+    res.status(500).json({ message: 'Error building timeline.', error: error.message });
+  }
+};
+
 // POST /api/portfolio/snapshots/backfill — Generate demo history
 exports.generateBackfill = async (req, res) => {
   try {
@@ -306,9 +379,10 @@ exports.generateBackfill = async (req, res) => {
   }
 };
 
-// GET /api/portfolio/family/:familyId/snapshots — Get historical snapshots for family charting
+// GET /api/portfolio/family/:familyId/snapshots — Build family wealth timeline from members' transactions
 exports.getFamilySnapshots = async (req, res) => {
   try {
+    const Transaction = require('../models/Transaction');
     const { familyId } = req.params;
     const { period = 'Monthly' } = req.query;
 
@@ -317,15 +391,57 @@ exports.getFamilySnapshots = async (req, res) => {
     if (period === 'Yearly') daysToFetch = 365;
     if (period === 'Daily') daysToFetch = 14;
 
+    // Gather all members of the family, then all their transactions.
+    const memberships = await require('../models/FamilyMembership').find({ familyId });
+    const memberIds = memberships.map(m => m.userId);
+
+    const transactions = await Transaction.find({ userId: { $in: memberIds } }).sort({ date: 1 });
+
+    if (!transactions.length) {
+      return res.json({ snapshots: [] });
+    }
+
+    // Build a cumulative "money invested" series across the family's full history.
+    // A buy adds its amount on its date; a sell subtracts its amount on its date.
+    let cumulative = 0;
+    const dailyMap = new Map(); // dayKey (UTC midnight ISO) -> cumulative value at end of that day
+    transactions.forEach(t => {
+      const delta = t.type === 'sell' ? -(t.totalAmount || 0) : (t.totalAmount || 0);
+      cumulative += delta;
+      const d = new Date(t.date);
+      const key = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
+      dailyMap.set(key, cumulative); // last write per day wins → end-of-day balance
+    });
+
+    const fullSeries = Array.from(dailyMap.entries())
+      .map(([date, value]) => ({ date, totalWealth: value }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Window the series to the requested period.
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - daysToFetch);
+    startDate.setHours(0, 0, 0, 0);
 
-    const snapshots = await PortfolioSnapshot.find({
-      familyId,
-      date: { $gte: startDate }
-    }).sort({ date: 1 });
+    const before = fullSeries.filter(p => new Date(p.date) < startDate);
+    const within = fullSeries.filter(p => new Date(p.date) >= startDate);
 
-    res.json({ snapshots });
+    const series = [];
+    // Baseline: carry the last value from before the window so the line starts correctly.
+    if (before.length) {
+      series.push({ date: startDate.toISOString(), totalWealth: before[before.length - 1].totalWealth });
+    }
+    series.push(...within);
+
+    // Extend the line to today with the latest cumulative value.
+    const finalVal = fullSeries[fullSeries.length - 1].totalWealth;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastPointDate = series.length ? new Date(series[series.length - 1].date) : null;
+    if (!lastPointDate || lastPointDate.getTime() !== today.getTime()) {
+      series.push({ date: today.toISOString(), totalWealth: finalVal });
+    }
+
+    res.json({ snapshots: series });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching family snapshots.', error: error.message });
   }
