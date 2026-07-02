@@ -1,6 +1,9 @@
 
   # ---- Stage 1: build the static assets ----
-  FROM node:20-alpine AS build
+  # Vite 8 / Rolldown require Node ^20.19 || >=22.12. Pin to 22-alpine so a
+  # stale/floating node:20 tag from the build cache can't ship an old 20.x
+  # that fails to load Rolldown's native binding ("npm run build" exit 1).
+  FROM node:22-alpine AS build
   WORKDIR /app
   COPY package*.json ./
   RUN npm ci
