@@ -198,7 +198,7 @@ export default function Reports() {
             <div className="stat-card">
               <div className="stat-card-body">
                 <span className="stat-card-label">Total Wealth</span>
-                <span className="stat-card-value">{formatCurrency(summary.totalWealth)}</span>
+                <AnimatedNumber className="stat-card-value" value={summary.totalWealth} format={formatCurrency} />
               </div>
               <div className="stat-card-icon icon-purple-solid"><Wallet size={22} /></div>
             </div>
@@ -206,7 +206,7 @@ export default function Reports() {
             <div className="stat-card">
               <div className="stat-card-body">
                 <span className="stat-card-label">Total Invested</span>
-                <span className="stat-card-value">{formatCurrency(summary.totalInvested)}</span>
+                <AnimatedNumber className="stat-card-value" value={summary.totalInvested} format={formatCurrency} />
               </div>
               <div className="stat-card-icon icon-purple-soft"><PiggyBank size={22} /></div>
             </div>
@@ -214,7 +214,7 @@ export default function Reports() {
             <div className="stat-card">
               <div className="stat-card-body">
                 <span className="stat-card-label">Total P&L</span>
-                <span className={`stat-card-value ${getPnLClass(summary.totalProfitLoss)}`}>{formatCurrency(summary.totalProfitLoss)}</span>
+                <AnimatedNumber className={`stat-card-value ${getPnLClass(summary.totalProfitLoss)}`} value={summary.totalProfitLoss} format={formatCurrency} />
               </div>
               <div className={`stat-card-icon ${summary.totalProfitLoss >= 0 ? 'icon-green-solid' : 'icon-red-solid'}`}>
                 {summary.totalProfitLoss >= 0 ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
@@ -224,7 +224,7 @@ export default function Reports() {
             <div className="stat-card">
               <div className="stat-card-body">
                 <span className="stat-card-label">Holdings</span>
-                <span className="stat-card-value">{summary.holdingsCount || summary.totalHoldings || 0}</span>
+                <AnimatedNumber className="stat-card-value" value={summary.holdingsCount || summary.totalHoldings || 0} format={(v) => Math.round(v)} />
               </div>
               <div className="stat-card-icon icon-purple-soft"><Layers size={22} /></div>
             </div>
