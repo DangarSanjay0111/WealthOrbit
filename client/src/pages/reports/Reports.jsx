@@ -5,12 +5,13 @@ import { useFamily } from '../../context/FamilyContext';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { formatCurrency, formatPercent, assetTypeLabels, getPnLClass } from '../../utils/formatters';
-import { FileText, Download, Users } from 'lucide-react';
+import { FileText, Download, Users, Wallet, PiggyBank, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { assetTypeColors } from '../../utils/formatters';
+import AnimatedNumber from '../../components/common/AnimatedNumber';
 
 export default function Reports() {
   const { activeFamily, switchFamily, families } = useFamily();
@@ -194,10 +195,39 @@ export default function Reports() {
         <>
           {/* Summary Cards */}
           <div className="grid-4 mb-6">
-            <div className="card"><div className="wealth-card-label">Total Wealth</div><div className="wealth-card-value">{formatCurrency(summary.totalWealth)}</div></div>
-            <div className="card"><div className="wealth-card-label">Total Invested</div><div className="wealth-card-value">{formatCurrency(summary.totalInvested)}</div></div>
-            <div className="card"><div className="wealth-card-label">Total P&L</div><div className={`wealth-card-value ${getPnLClass(summary.totalProfitLoss)}`}>{formatCurrency(summary.totalProfitLoss)}</div></div>
-            <div className="card"><div className="wealth-card-label">Holdings</div><div className="wealth-card-value">{summary.holdingsCount || summary.totalHoldings || 0}</div></div>
+            <div className="stat-card">
+              <div className="stat-card-body">
+                <span className="stat-card-label">Total Wealth</span>
+                <span className="stat-card-value">{formatCurrency(summary.totalWealth)}</span>
+              </div>
+              <div className="stat-card-icon icon-purple-solid"><Wallet size={22} /></div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-card-body">
+                <span className="stat-card-label">Total Invested</span>
+                <span className="stat-card-value">{formatCurrency(summary.totalInvested)}</span>
+              </div>
+              <div className="stat-card-icon icon-purple-soft"><PiggyBank size={22} /></div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-card-body">
+                <span className="stat-card-label">Total P&L</span>
+                <span className={`stat-card-value ${getPnLClass(summary.totalProfitLoss)}`}>{formatCurrency(summary.totalProfitLoss)}</span>
+              </div>
+              <div className={`stat-card-icon ${summary.totalProfitLoss >= 0 ? 'icon-green-solid' : 'icon-red-solid'}`}>
+                {summary.totalProfitLoss >= 0 ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-card-body">
+                <span className="stat-card-label">Holdings</span>
+                <span className="stat-card-value">{summary.holdingsCount || summary.totalHoldings || 0}</span>
+              </div>
+              <div className="stat-card-icon icon-purple-soft"><Layers size={22} /></div>
+            </div>
           </div>
 
           {/* Asset Breakdown Chart */}
