@@ -4,7 +4,7 @@ const {
   getMyHoldings, getMemberHoldings, getFamilyHoldings, 
   addHolding, updateHolding, deleteHolding, 
   getPortfolioSummary, getSnapshots, generateBackfill,
-  getFamilySnapshots, generateFamilyBackfill
+  getFamilySnapshots, generateFamilyBackfill, getTransactionTimeline
 } = require('../controllers/portfolioController');
 const auth = require('../middleware/auth');
 const familyAccess = require('../middleware/familyAccess');
@@ -15,6 +15,7 @@ router.use(auth);
 router.get('/', getMyHoldings);
 router.get('/summary', getPortfolioSummary);
 router.get('/snapshots', getSnapshots);
+router.get('/timeline', getTransactionTimeline);
 router.post('/snapshots/backfill', generateBackfill);
 router.post('/holdings', addHolding);
 router.put('/holdings/:id', updateHolding);
