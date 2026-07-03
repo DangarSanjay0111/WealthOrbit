@@ -1,5 +1,6 @@
 const Holding = require('../models/Holding');
 const FamilyMembership = require('../models/FamilyMembership');
+const { computeTodaysGain } = require('../services/todaysGain');
 
 // GET /api/portfolio — Own holdings
 exports.getMyHoldings = async (req, res) => {
@@ -161,6 +162,31 @@ exports.getPortfolioSummary = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching summary.', error: error.message });
+  }
+};
+
+// GET /api/portfolio/todays-gain — 1-day gain across the user's stock/MF holdings
+exports.getTodaysGain = async (req, res) => {
+  try {
+    const holdings = await Holding.find({ userId: req.userId, assetType: { $in: ['stock', 'mutual_fund'] } }).lean();
+    const result = await computeTodaysGain(holdings);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Error computing today's gain.", error: error.message });
+  }
+};
+
+// GET /api/portfolio/family/:familyId/todays-gain — combined family 1-day gain
+exports.getFamilyTodaysGain = async (req, res) => {
+  try {
+    const { familyId } = req.params;
+    const memberships = await FamilyMembership.find({ familyId });
+    const memberIds = memberships.map(m => m.userId);
+    const holdings = await Holding.find({ userId: { $in: memberIds }, assetType: { $in: ['stock', 'mutual_fund'] } }).lean();
+    const result = await computeTodaysGain(holdings);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Error computing family today's gain.", error: error.message });
   }
 };
 

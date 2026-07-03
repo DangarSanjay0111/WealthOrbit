@@ -1,10 +1,48 @@
 const UploadHistory = require('../models/UploadHistory');
 const Transaction = require('../models/Transaction');
+const Holding = require('../models/Holding');
 const { recalculateHolding } = require('./transactionController');
 const path = require('path');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const ExcelJS = require('exceljs');
+
+// Lazy-load yahoo-finance2 (ESM) for post-import live price refresh.
+let _yf = null;
+const getYahoo = async () => {
+  if (!_yf) {
+    const YahooFinance = (await import('yahoo-finance2')).default;
+    _yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+  }
+  return _yf;
+};
+
+// Best-effort: fetch live prices for a user's stock/MF holdings and update
+// currentPrice so imported positions show real Current Value immediately.
+const refreshHoldingPrices = async (userId) => {
+  try {
+    const holdings = await Holding.find({
+      userId,
+      assetType: { $in: ['stock', 'mutual_fund'] },
+      symbol: { $nin: [null, ''] },
+    });
+    if (!holdings.length) return;
+
+    const symbols = [...new Set(holdings.map(h => h.symbol))];
+    const yf = await getYahoo();
+    const res = await yf.quote(symbols, {}, { validateResult: false });
+    const quotes = Array.isArray(res) ? res : [res];
+    const priceBy = new Map();
+    quotes.forEach(q => { if (q && q.symbol && q.regularMarketPrice != null) priceBy.set(q.symbol, q.regularMarketPrice); });
+
+    for (const h of holdings) {
+      const p = priceBy.get(h.symbol);
+      if (p) { h.currentPrice = p; await h.save(); } // pre-save hook recomputes currentValue/P&L
+    }
+  } catch {
+    // Network/symbol errors: leave currentPrice as-is (buy price).
+  }
+};
 
 // Convert an .xlsx/.xls workbook into plain CSV-like text the AI can read.
 const extractExcelText = async (filePath) => {
@@ -90,9 +128,14 @@ exports.uploadReport = async (req, res) => {
         temperature: 0
       });
 
-      const prompt = `You are a financial data extraction expert. Analyze the following Demat account statement or portfolio report and extract ALL investment transactions.
+      const prompt = `You are a financial data extraction expert. Analyze the following Demat account statement, contract note, tradebook, or portfolio report and extract ALL investment transactions with PERFECT accuracy.
 
-For each holding found in the document, create a "buy" transaction with the quantity, average buy price, and earliest date available.
+BUY vs SELL — THE MOST IMPORTANT RULE:
+- Read the transaction type for EACH row and set "type" to exactly "buy" or "sell".
+- A row is a SELL when it says: Sell, Sold, Sale, S, Debit (of shares), "Sell" side, delivery out, or the quantity is shown as negative. Otherwise it is a BUY (Buy, Bought, B, Credit of shares, delivery in).
+- If the document is a TRANSACTION/TRADE history, output ONE record per individual trade row and preserve every buy AND every sell separately — do NOT merge them and do NOT convert sells into buys.
+- Only when the document is purely a CURRENT-HOLDINGS snapshot (no trade type column at all) should you treat each holding as a single "buy".
+- Every quantity, price and amount must be a positive number; encode direction only via the "type" field.
 
 Return a JSON object with this exact structure:
 {
@@ -125,10 +168,10 @@ CRITICAL RULES FOR SYMBOL:
 
 Other rules:
 - If the document only shows current holdings (not explicit buy/sell history), treat each holding as a "buy" transaction
-- Extract ALL items found in the document
-- If a numeric field is not available, use 0
-- Parse amounts correctly (remove commas, handle lakhs/crores notation)
-- For date, use the report date or today's date if not available
+- Extract ALL items found in the document — every trade row, buys and sells alike
+- If a numeric field is not available, use 0, but never invent quantities or prices
+- Parse amounts correctly (remove commas, handle lakhs/crores notation); quantity, price, totalAmount are always positive
+- For date, use the actual trade/transaction date of that row; fall back to the report date only if a row has none
 - Return ONLY valid JSON, no additional text
 
 Document content:
@@ -234,6 +277,9 @@ exports.confirmUpload = async (req, res) => {
         // Recalculate portfolio holding for this asset
         await recalculateHolding(req.userId, t.assetType || 'stock', t.name, t.symbol || '');
       }
+
+      // Pull live prices so imported holdings show real Current Value.
+      await refreshHoldingPrices(req.userId);
     }
 
     res.json({
