@@ -5,12 +5,7 @@ import { useFamily } from '../../context/FamilyContext';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { formatCurrency, formatPercent, assetTypeLabels, getPnLClass } from '../../utils/formatters';
-import { FileText, Download, Users, Wallet, PiggyBank, TrendingUp, TrendingDown, Layers } from 'lucide-react';
-import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
-import { assetTypeColors } from '../../utils/formatters';
+import { FileText, Download, Users, Wallet, PiggyBank, TrendingUp, TrendingDown, Layers, Calendar, BarChart3, ChevronDown } from 'lucide-react';
 import AnimatedNumber from '../../components/common/AnimatedNumber';
 
 export default function Reports() {
@@ -19,6 +14,123 @@ export default function Reports() {
   const [reportType, setReportType] = useState('individual');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthlyTxns, setMonthlyTxns] = useState([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+
+  // Build a list of the last 12 months for the selector
+  const monthOptions = (() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      opts.push({ value, label });
+    }
+    return opts;
+  })();
+
+  const selectedMonthLabel = monthOptions.find(o => o.value === selectedMonth)?.label || selectedMonth;
+
+  const fetchMonthly = async () => {
+    setMonthlyLoading(true);
+    try {
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const startDate = `${selectedMonth}-01`;
+      const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // last day of month
+      const { data } = await api.get('/transactions', {
+        params: { startDate, endDate, limit: 1000 }
+      });
+      setMonthlyTxns(data.transactions || []);
+    } catch { setMonthlyTxns([]); }
+    finally { setMonthlyLoading(false); }
+  };
+
+  useEffect(() => { fetchMonthly(); }, [selectedMonth]);
+
+  // Aggregate the monthly transactions into summary buckets
+  const monthlySummary = monthlyTxns.reduce((acc, t) => {
+    const amount = t.totalAmount || 0;
+    if (t.type === 'buy') {
+      acc.purchases += amount;
+      const pnl = t.profitLoss ?? t.realizedPnl ?? 0;
+      if (pnl > 0) acc.profit += pnl; else if (pnl < 0) acc.loss += Math.abs(pnl);
+    } else if (t.type === 'sell') {
+      acc.sales += amount;
+      const pnl = t.profitLoss ?? t.realizedPnl ?? 0;
+      if (pnl > 0) acc.profit += pnl; else if (pnl < 0) acc.loss += Math.abs(pnl);
+    }
+    acc.transactions += 1;
+    return acc;
+  }, { purchases: 0, sales: 0, profit: 0, loss: 0, transactions: 0 });
+
+  const downloadMonthlyReport = () => {
+    const doc = new jsPDF();
+    const formatCurrencyPDF = (val) => {
+      if (val === null || val === undefined) return 'Rs. 0';
+      const numStr = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Math.abs(val));
+      return (val < 0 ? '-' : '') + 'Rs. ' + numStr;
+    };
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Monthly Investment Report', 14, 22);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(108, 117, 125);
+    doc.text(selectedMonthLabel, 14, 30);
+
+    doc.setDrawColor(233, 236, 239);
+    doc.setLineWidth(0.5);
+    doc.line(14, 35, 196, 35);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [['Purchases', 'Sales', 'Profit', 'Loss', 'Transactions']],
+      body: [[
+        formatCurrencyPDF(monthlySummary.purchases),
+        formatCurrencyPDF(monthlySummary.sales),
+        formatCurrencyPDF(monthlySummary.profit),
+        formatCurrencyPDF(monthlySummary.loss),
+        String(monthlySummary.transactions)
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [43, 90, 238], textColor: 255, fontSize: 11, fontStyle: 'bold', halign: 'center' },
+      bodyStyles: { fontSize: 12, fontStyle: 'bold', halign: 'center', textColor: [33, 37, 41] }
+    });
+
+    if (monthlyTxns.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Transactions', 14, doc.lastAutoTable.finalY + 15);
+
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [['Date', 'Name', 'Type', 'Qty', 'Price', 'Amount']],
+        body: monthlyTxns.map(t => [
+          new Date(t.date).toLocaleDateString('en-IN'),
+          t.name,
+          (t.type || '').toUpperCase(),
+          t.quantity ?? '-',
+          formatCurrencyPDF(t.price),
+          formatCurrencyPDF(t.totalAmount)
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 10, fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 4 }
+      });
+    }
+
+    doc.save(`WealthOrbit_Monthly_${selectedMonth}.pdf`);
+    success('Monthly report downloaded!');
+  };
 
   const fetchReport = async () => {
     if (!activeFamily) return;
@@ -140,12 +252,6 @@ export default function Reports() {
   };
 
   const summary = reportData?.summary || reportData?.familySummary || {};
-  const breakdown = reportData?.assetBreakdown || {};
-  const allocationData = Object.entries(breakdown).map(([key, val]) => ({
-    name: assetTypeLabels[key] || key,
-    value: val.value || val,
-    color: assetTypeColors[key]
-  }));
 
   return (
     <div className="page-container">
@@ -230,40 +336,55 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Asset Breakdown Chart */}
-          {allocationData.length > 0 && (
-            <div className="grid-2 mb-6">
-              <div className="card">
-                <h3 className="card-title mb-4">Asset Allocation</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value">
-                      {allocationData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: '13px', color: 'var(--text-primary)' }} formatter={v => formatCurrency(v)} />
-                    <Legend formatter={val => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{val}</span>} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="card">
-                <h3 className="card-title mb-4">Asset Breakdown</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  {Object.entries(breakdown).map(([key, val]) => {
-                    const data = typeof val === 'object' ? val : { value: val, count: 0, pnl: 0 };
-                    return (
-                      <div key={key} className="flex items-center justify-between" style={{ padding: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
-                        <div className="flex items-center gap-2">
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: assetTypeColors[key] }} />
-                          <span className="font-medium text-sm">{assetTypeLabels[key]}</span>
-                        </div>
-                        <span className="font-semibold">{formatCurrency(data.value || data)}</span>
-                      </div>
-                    );
-                  })}
+          {/* Monthly Report + Summary side by side */}
+          <div className="grid-2 mb-6" style={{ alignItems: 'stretch' }}>
+            {/* Monthly Investment Report */}
+            <div className="card">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="stat-card-icon icon-purple-soft" style={{ color: 'var(--accent)' }}><Calendar size={22} /></div>
+                <div>
+                  <h3 className="card-title" style={{ marginBottom: 2 }}>Monthly Investment Report</h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Detailed breakdown of monthly transactions</p>
                 </div>
               </div>
+
+              <div style={{ position: 'relative', marginBottom: 'var(--space-4)' }}>
+                <select
+                  className="input"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  style={{ width: '100%', appearance: 'none', paddingRight: 40 }}
+                >
+                  {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <ChevronDown size={18} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-secondary)' }} />
+              </div>
+
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={downloadMonthlyReport} disabled={monthlyLoading}>
+                <Download size={16} /> Download Report
+              </button>
             </div>
-          )}
+
+            {/* Monthly Summary — Purchases/Sales on top, Profit/Loss below */}
+            <div className="card">
+              <h3 className="card-title mb-4 flex items-center gap-2">
+                <BarChart3 size={20} style={{ color: 'var(--primary)' }} /> Monthly Summary - {selectedMonthLabel}
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)' }}>
+                {[
+                  { label: 'Purchases', value: formatCurrency(monthlySummary.purchases), color: 'var(--accent)' },
+                  { label: 'Sales', value: formatCurrency(monthlySummary.sales), color: 'var(--danger)' },
+                  { label: 'Profit', value: formatCurrency(monthlySummary.profit), color: 'var(--accent)' },
+                  { label: 'Loss', value: formatCurrency(monthlySummary.loss), color: 'var(--danger)' },
+                ].map(item => (
+                  <div key={item.label} style={{ textAlign: 'center', padding: 'var(--space-4)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: item.color, marginBottom: 4 }}>{item.value}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Family Members (family report) */}
           {reportType === 'family' && reportData.memberSummary && (
@@ -288,30 +409,6 @@ export default function Reports() {
             </div>
           )}
 
-          {/* Holdings Table */}
-          {reportData.holdings?.length > 0 && (
-            <div className="card">
-              <h3 className="card-title mb-4">Holdings Detail</h3>
-              <div className="table-container">
-                <table className="table">
-                  <thead><tr><th>Name</th><th>Type</th><th>Qty</th><th>Invested</th><th>Current Value</th><th>P&L</th><th>P&L %</th></tr></thead>
-                  <tbody>
-                    {reportData.holdings.map(h => (
-                      <tr key={h._id}>
-                        <td className="font-medium">{h.name}</td>
-                        <td><span className="badge badge-neutral">{assetTypeLabels[h.assetType]}</span></td>
-                        <td>{h.quantity || h.weightGrams || '-'}</td>
-                        <td>{formatCurrency(h.totalInvested)}</td>
-                        <td className="font-semibold">{formatCurrency(h.currentValue)}</td>
-                        <td className={getPnLClass(h.profitLoss)}>{formatCurrency(h.profitLoss)}</td>
-                        <td className={getPnLClass(h.profitLossPercent)}>{formatPercent(h.profitLossPercent)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>

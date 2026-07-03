@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import { formatCurrency, formatPercent, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
 import { Briefcase, Plus, X, Search } from 'lucide-react';
+import StockSection from '../../components/portfolio/StockSection';
 import './Portfolio.css';
 
 const ASSET_TABS = ['all', 'stock', 'mutual_fund', 'gold', 'silver', 'fixed_deposit', 'other_income'];
@@ -86,6 +87,11 @@ export default function Portfolio() {
         ))}
       </div>
 
+      {/* Dedicated Shares/Stocks section (own portfolio only) */}
+      {activeTab === 'stock' && !memberId ? (
+        <StockSection onChange={fetchHoldings} />
+      ) : (
+      <>
       {/* Search */}
       <div className="search-bar mb-6" style={{ maxWidth: 360 }}>
         <Search size={16} className="search-bar-icon" />
@@ -140,6 +146,8 @@ export default function Portfolio() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   );

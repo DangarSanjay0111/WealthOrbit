@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { Link } from 'react-router-dom';
 import AnimatedNumber from '../../components/common/AnimatedNumber';
+import TodaysGain from '../../components/common/TodaysGain';
 import '../dashboard/Dashboard.css';
 
 const PERIODS = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
@@ -227,30 +228,23 @@ export default function Family() {
             </div>
           </div>
 
-          <div className="stat-card">
-            <div className="stat-card-body">
-              <span className="stat-card-label">Family Members</span>
-              <AnimatedNumber className="stat-card-value" value={familyMembers.length} format={(v) => Math.round(v)} />
-              <span className="stat-card-meta">Contributing members</span>
-            </div>
-            <div className="stat-card-icon icon-purple-soft">
-              <Users size={22} />
-            </div>
-          </div>
+          <TodaysGain endpoint={`/portfolio/family/${activeFamily._id}/todays-gain`} variant="card" />
         </div>
       )}
 
       {/* Period Toggle */}
-      <div className="tab-bar" style={{ maxWidth: 360 }}>
-        {PERIODS.map(p => (
-          <button
-            key={p}
-            className={`tab-item ${activePeriod === p ? 'active' : ''}`}
-            onClick={() => setActivePeriod(p)}
-          >
-            {p}
-          </button>
-        ))}
+      <div className="toolbar-row">
+        <div className="tab-bar" style={{ maxWidth: 360 }}>
+          {PERIODS.map(p => (
+            <button
+              key={p}
+              className={`tab-item ${activePeriod === p ? 'active' : ''}`}
+              onClick={() => setActivePeriod(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Charts Row */}

@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { formatCurrency, formatPercent, formatCompact, getPnLClass, assetTypeLabels, assetTypeColors } from '../../utils/formatters';
 import { Link } from 'react-router-dom';
 import AnimatedNumber from '../../components/common/AnimatedNumber';
+import TodaysGain from '../../components/common/TodaysGain';
 import {
   TrendingUp, TrendingDown, Wallet, BarChart3, RefreshCw,
   Briefcase, CircleDollarSign, Gem, Sparkles, PiggyBank, ArrowUpRight
@@ -112,7 +113,6 @@ export default function Dashboard() {
     };
   });
 
-  const activeAssets = allocationData.filter(a => a.value > 0).length;
   const assetClassCount = Object.keys(assetTypeLabels).length;
   const growth = parseFloat(currentData.profitLossPercent) || 0;
 
@@ -187,30 +187,23 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="stat-card">
-            <div className="stat-card-body">
-              <span className="stat-card-label">Active Assets</span>
-              <AnimatedNumber className="stat-card-value" value={activeAssets} format={(v) => Math.round(v)} />
-              <span className="stat-card-meta">Diversified portfolio</span>
-            </div>
-            <div className="stat-card-icon icon-purple-soft">
-              <BarChart3 size={22} />
-            </div>
-          </div>
+          <TodaysGain endpoint="/portfolio/todays-gain" variant="card" />
         </div>
       )}
 
       {/* Period Toggle */}
-      <div className="tab-bar" style={{ maxWidth: 360 }}>
-        {PERIODS.map(p => (
-          <button
-            key={p}
-            className={`tab-item ${activePeriod === p ? 'active' : ''}`}
-            onClick={() => setActivePeriod(p)}
-          >
-            {p}
-          </button>
-        ))}
+      <div className="toolbar-row">
+        <div className="tab-bar" style={{ maxWidth: 360 }}>
+          {PERIODS.map(p => (
+            <button
+              key={p}
+              className={`tab-item ${activePeriod === p ? 'active' : ''}`}
+              onClick={() => setActivePeriod(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Charts Row */}
