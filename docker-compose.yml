@@ -9,7 +9,7 @@ services:
       - mongodb_data:/data/db
 
   server:
-    build: ./server
+    image: 566739890498.dkr.ecr.ap-south-1.amazonaws.com/wealthorbit-server:latest
     container_name: wealthorbit-server
     restart: unless-stopped
     ports:
@@ -26,10 +26,7 @@ services:
       - mongodb
 
   client:
-    build:
-      context: ./client
-      args:
-        VITE_API_URL: /api
+    image: 566739890498.dkr.ecr.ap-south-1.amazonaws.com/wealthorbit-client:latest
     container_name: wealthorbit-client
     restart: unless-stopped
     ports:
