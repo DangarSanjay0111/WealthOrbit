@@ -1,8 +1,8 @@
 name: Docker Build & Push
 
 # Build the client and server images and push them to Amazon ECR.
-# Images are built for BOTH linux/amd64 and linux/arm64 so they run
-# natively on amd64 servers (EC2 t3/m5) AND on Apple-Silicon Macs.
+# Images are built for linux/amd64 (the EC2 server arch). They also run on
+# Apple-Silicon Macs under Rosetta emulation, which is fine for local testing.
 # Runs on every push to main and can be triggered manually.
 on:
   push:
@@ -37,10 +37,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # QEMU lets the amd64 runner also build the arm64 variant.
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -72,7 +68,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          # amd64 only — the EC2 server is x86_64. This keeps CI fast (no QEMU
+          # emulation). It still runs on Apple-Silicon Macs via Rosetta.
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # The client bakes VITE_API_URL in at build time; ignored by server.
