@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Default to the RELATIVE "/api" path — nginx proxies it to the server in
+// production, and Vite's dev server proxies it in local dev (see vite.config.js).
+// Never fall back to localhost:5000: in a browser "localhost" means the user's
+// own machine, which breaks every non-local deploy (CORS / connection refused).
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
