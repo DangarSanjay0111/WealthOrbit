@@ -35,11 +35,12 @@ export default function Header() {
   }, []);
 
   return (
+    <>
     <header className="header">
       <div className="header-left">
         <div className="header-logo" onClick={() => navigate('/dashboard')}>
           <Orbit size={30} className="text-primary" />
-          <span className="font-bold text-2xl">WealthOrbit</span>
+          <span className="header-logo-text font-bold text-2xl">WealthOrbit</span>
         </div>
       </div>
 
@@ -101,5 +102,20 @@ export default function Header() {
         </div>
       </div>
     </header>
+
+    {/* Bottom navigation — mobile only */}
+    <nav className="mobile-nav">
+      {navItems.map(item => (
+        <NavLink
+          key={item.path}
+          to={item.path}
+          className={({ isActive }) => `mobile-nav-item ${isActive ? 'mobile-nav-active' : ''}`}
+        >
+          <item.icon size={20} />
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+    </>
   );
 }

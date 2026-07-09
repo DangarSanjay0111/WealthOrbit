@@ -123,4 +123,74 @@
   .header {
     padding: 0 var(--space-4);
   }
+  /* Top nav moves to the bottom bar on mobile */
+  .header-center {
+    display: none;
+  }
+  .header-left,
+  .header-right {
+    width: auto;
+    flex: 1;
+  }
+  .header-right {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 380px) {
+  /* Keep logo + controls from overflowing on very small phones */
+  .header-logo-text {
+    font-size: var(--font-size-lg);
+  }
+}
+
+/* ============================================
+   MOBILE BOTTOM NAV
+   (rendered by Header; shown only ≤768px)
+   ============================================ */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-secondary);
+  z-index: var(--z-header);
+  padding: 0 var(--space-1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-nav-item span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-nav-item:hover,
+.mobile-nav-active {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+  }
 }
