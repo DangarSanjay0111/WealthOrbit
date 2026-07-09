@@ -143,3 +143,38 @@
   color: var(--danger);
   flex-shrink: 0;
 }
+
+/* ============================================
+   RESPONSIVE — Portfolio
+   ============================================ */
+@media (max-width: 640px) {
+  .stock-overview-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stock-stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stock-txn-row {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .stock-txn-main {
+    flex: 1 1 100%;
+  }
+
+  .stock-txn-right {
+    text-align: left;
+    flex: 1;
+  }
+}
+
+@media (max-width: 400px) {
+  .stock-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

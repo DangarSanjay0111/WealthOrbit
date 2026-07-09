@@ -496,3 +496,74 @@
 .todays-gain-pill.loading {
   border-style: dashed;
 }
+
+/* ============================================
+   RESPONSIVE — Dashboard & Family (shared)
+   ============================================ */
+@media (max-width: 768px) {
+  .hero-banner {
+    flex-direction: column;
+    padding: var(--space-6) var(--space-5) var(--space-6);
+  }
+
+  .hero-banner::after {
+    width: 200px;
+    height: 200px;
+  }
+
+  .hero-title {
+    font-size: var(--font-size-3xl);
+    letter-spacing: -0.5px;
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-base);
+  }
+
+  .hero-refresh {
+    width: 100%;
+  }
+
+  .hero-refresh .btn {
+    width: 100%;
+  }
+
+  .toolbar-row {
+    align-items: stretch;
+  }
+
+  .toolbar-row .tab-bar {
+    max-width: 100% !important;
+  }
+
+  .view-toggle {
+    width: 100%;
+  }
+
+  .view-toggle-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .section-header-title {
+    font-size: var(--font-size-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .hero-greeting-badge {
+    margin-bottom: var(--space-3);
+  }
+
+  .asset-tile {
+    padding: var(--space-5);
+  }
+
+  .wealth-card-value {
+    font-size: var(--font-size-xl);
+  }
+}

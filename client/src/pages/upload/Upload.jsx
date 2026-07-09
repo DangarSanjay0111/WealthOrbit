@@ -58,7 +58,7 @@ export default function UploadPage() {
     setConfirming(true);
     try {
       const { data } = await api.post(`/upload/${result.uploadId}/confirm`);
-      success(`Imported ${data.holdingsCreated} holdings and ${data.transactionsCreated} transactions!`);
+      success(`Imported ${data.transactionsCreated} transactions. Your portfolio now holds ${data.holdingsCreated} position${data.holdingsCreated === 1 ? '' : 's'}.`);
       setResult(null);
       setFile(null);
     } catch (err) {
@@ -129,7 +129,10 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-semibold">Extraction Complete</h3>
                 <p className="text-sm text-secondary">
-                  Found {result.extractedData.holdings?.length || 0} holdings and {result.extractedData.transactions?.length || 0} transactions
+                  Found {result.extractedData.transactions?.length || 0} transactions
+                  {' '}({result.extractedData.transactions?.filter(t => t.type === 'buy').length || 0} buy,
+                  {' '}{result.extractedData.transactions?.filter(t => t.type === 'sell').length || 0} sell).
+                  Sells will be netted against buys when you import.
                 </p>
               </div>
             </div>
