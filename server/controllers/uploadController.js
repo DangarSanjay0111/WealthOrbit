@@ -1,7 +1,7 @@
 const UploadHistory = require('../models/UploadHistory');
 const Transaction = require('../models/Transaction');
 const Holding = require('../models/Holding');
-const { recalculateHolding } = require('./transactionController');
+const { recalculateHolding, cleanSymbol, cleanName } = require('./transactionController');
 const path = require('path');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
@@ -165,6 +165,7 @@ CRITICAL RULES FOR SYMBOL:
 - If the ISIN is given (e.g., INE002A01018), look up the corresponding ticker symbol
 - If the company or fund name is given but no symbol, derive the ticker from the name (e.g., "Reliance Industries" → "RELIANCE.NS", "Parag Parikh Flexi Cap Fund" → "0P0000XVMA.BO")
 - NEVER leave symbol empty or as ""
+- CONSISTENCY (CRITICAL): For the SAME instrument, use the EXACT SAME "symbol" AND the EXACT SAME "name" spelling across ALL of its rows — every buy and every sell. Never spell "Reliance Industries" one way on the buy and another on the sell, and never use .NS on the buy and .BO on the sell. Pick ONE canonical ticker (prefer NSE / .NS for Indian stocks) and reuse it for that instrument everywhere. This is required so a later SELL correctly cancels an earlier BUY of the same stock.
 
 Other rules:
 - If the document only shows current holdings (not explicit buy/sell history), treat each holding as a "buy" transaction
@@ -252,39 +253,78 @@ exports.confirmUpload = async (req, res) => {
     }
 
     const { extractedData } = upload;
+    const rawTxns = Array.isArray(extractedData?.transactions) ? extractedData.transactions : [];
+
+    // 1) Normalize every extracted row to a clean, consistent shape.
+    const rows = rawTxns.map(t => {
+      const qty = Number(t.quantity) || 0;
+      const prc = Number(t.price) || 0;
+      return {
+        assetType: t.assetType || 'stock',
+        name: cleanName(t.name),
+        symbol: cleanSymbol(t.symbol),
+        type: t.type === 'sell' ? 'sell' : 'buy',
+        quantity: qty,
+        price: prc,
+        totalAmount: Number(t.totalAmount) || (qty * prc) || 0,
+        date: t.date ? new Date(t.date) : new Date(),
+      };
+    }).filter(r => r.name || r.symbol); // drop empty junk rows
+
+    // 2) Reconcile identities within the batch: if one row for an instrument has
+    //    the ticker symbol and another (e.g. the matching sell) is missing it,
+    //    backfill from the sibling so buys and sells net against each other.
+    const symbolByName = new Map();
+    const nameBySymbol = new Map();
+    for (const r of rows) {
+      if (r.name && r.symbol && !symbolByName.has(r.name)) symbolByName.set(r.name, r.symbol);
+      if (r.symbol && r.name && !nameBySymbol.has(r.symbol)) nameBySymbol.set(r.symbol, r.name);
+    }
+    for (const r of rows) {
+      if (!r.symbol && r.name && symbolByName.has(r.name)) r.symbol = symbolByName.get(r.name);
+      if (!r.name && r.symbol && nameBySymbol.has(r.symbol)) r.name = nameBySymbol.get(r.symbol);
+    }
+
+    // 3) Create the transaction rows and collect the distinct instruments.
     let transactionsCreated = 0;
+    const instruments = new Map();
+    for (const r of rows) {
+      await Transaction.create({
+        userId: req.userId,
+        assetType: r.assetType,
+        name: r.name,
+        symbol: r.symbol,
+        type: r.type,
+        quantity: r.quantity,
+        price: r.price,
+        totalAmount: r.totalAmount,
+        date: r.date,
+        source: 'ai_upload'
+      });
+      transactionsCreated++;
 
-    // Create transactions and recalculate holdings
-    if (extractedData.transactions && extractedData.transactions.length > 0) {
-      for (const t of extractedData.transactions) {
-        const qty = Number(t.quantity) || 0;
-        const prc = Number(t.price) || 0;
+      const key = `${r.assetType}|${r.symbol || r.name}`;
+      if (!instruments.has(key)) instruments.set(key, r);
+    }
 
-        await Transaction.create({
-          userId: req.userId,
-          assetType: t.assetType || 'stock',
-          name: t.name,
-          symbol: t.symbol || '',
-          type: t.type || 'buy',
-          quantity: qty,
-          price: prc,
-          totalAmount: t.totalAmount || (qty * prc) || 0,
-          date: t.date ? new Date(t.date) : new Date(),
-          source: 'ai_upload'
-        });
-        transactionsCreated++;
+    // 4) Recalculate each affected instrument once — nets all buys vs sells so a
+    //    fully-sold position is removed and a partially-sold one is reduced.
+    for (const inst of instruments.values()) {
+      await recalculateHolding(req.userId, inst.assetType, inst.name, inst.symbol);
+    }
 
-        // Recalculate portfolio holding for this asset
-        await recalculateHolding(req.userId, t.assetType || 'stock', t.name, t.symbol || '');
-      }
-
+    if (transactionsCreated > 0) {
       // Pull live prices so imported holdings show real Current Value.
       await refreshHoldingPrices(req.userId);
     }
 
+    // Positions that remain in the portfolio after netting.
+    const holdingsCreated = await Holding.countDocuments({ userId: req.userId });
+
     res.json({
       message: 'Transactions imported and portfolio recalculated.',
-      transactionsCreated
+      transactionsCreated,
+      holdingsCreated
     });
   } catch (error) {
     res.status(500).json({ message: 'Error confirming upload.', error: error.message });

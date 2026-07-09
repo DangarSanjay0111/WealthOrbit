@@ -44,22 +44,42 @@ exports.getMyTransactions = async (req, res) => {
 
 const Holding = require('../models/Holding');
 
-const recalculateHolding = async (userId, assetType, name, symbol) => {
+// Normalize instrument identifiers so buys & sells of the SAME asset always
+// group together. Case/whitespace/blank-symbol differences must NOT split them,
+// otherwise a sell lands in its own group and never reduces the holding.
+const cleanSymbol = (s) => String(s || '').trim().toUpperCase();
+const cleanName = (n) => String(n || '').trim().replace(/\s+/g, ' ');
+
+// A trade belongs to an instrument if EITHER its ticker symbol OR its name
+// matches — this reconciles rows where the buy carries the symbol but the sell
+// only has the name (or vice-versa).
+const instrumentQuery = (userId, assetType, name, symbol) => {
+  const sym = cleanSymbol(symbol);
+  const nm = cleanName(name);
+  const or = [];
+  if (sym) or.push({ symbol: sym });
+  if (nm) or.push({ name: nm });
   const query = { userId, assetType };
-  if (symbol) query.symbol = symbol;
-  else query.name = name;
+  if (or.length) query.$or = or;
+  return query;
+};
+
+const recalculateHolding = async (userId, assetType, name, symbol) => {
+  const query = instrumentQuery(userId, assetType, name, symbol);
 
   const txns = await Transaction.find(query).sort({ date: 1 });
-  
+
   if (txns.length === 0) {
     await Holding.findOneAndDelete(query);
     return;
   }
 
+  // Average-cost method: buys add quantity & cost; sells reduce quantity at the
+  // running average cost. The net quantity is what remains in the portfolio.
   let totalQty = 0;
   let totalInvested = 0;
   let lastPrice = 0;
-  
+
   for (const txn of txns) {
     if (txn.type === 'buy') {
       totalQty += txn.quantity;
@@ -73,43 +93,52 @@ const recalculateHolding = async (userId, assetType, name, symbol) => {
     }
   }
 
+  // Fully sold (or oversold) → the position leaves the portfolio entirely,
+  // while the buy & sell rows stay in the transaction history.
   if (totalQty <= 0) {
     await Holding.findOneAndDelete(query);
+    return;
+  }
+
+  const holding = await Holding.findOne(query);
+  const avgBuyPrice = totalInvested / totalQty;
+  if (holding) {
+    holding.quantity = totalQty;
+    holding.totalInvested = totalInvested;
+    holding.avgBuyPrice = avgBuyPrice;
+    await holding.save();
   } else {
-    const holding = await Holding.findOne(query);
-    const avgBuyPrice = totalInvested / totalQty;
-    if (holding) {
-      holding.quantity = totalQty;
-      holding.totalInvested = totalInvested;
-      holding.avgBuyPrice = avgBuyPrice;
-      await holding.save();
-    } else {
-      await Holding.create({
-        userId, assetType, name, symbol,
-        quantity: totalQty, totalInvested, avgBuyPrice,
-        currentPrice: lastPrice
-      });
-    }
+    await Holding.create({
+      userId, assetType,
+      name: cleanName(name),
+      symbol: cleanSymbol(symbol),
+      quantity: totalQty, totalInvested, avgBuyPrice,
+      currentPrice: lastPrice
+    });
   }
 };
 
 // Export for use in uploadController
 exports.recalculateHolding = recalculateHolding;
+exports.cleanSymbol = cleanSymbol;
+exports.cleanName = cleanName;
 
 // POST /api/transactions — Add a transaction manually
 exports.addTransaction = async (req, res) => {
   try {
     const { assetType, name, symbol, type, quantity, price, date, notes } = req.body;
-    
+
     const qty = Number(quantity);
     const prc = Number(price);
     const total = qty * prc;
+    const cleanedName = cleanName(name);
+    const cleanedSymbol = cleanSymbol(symbol);
 
     const transaction = await Transaction.create({
       userId: req.userId,
       assetType,
-      name,
-      symbol,
+      name: cleanedName,
+      symbol: cleanedSymbol,
       type,
       quantity: qty,
       price: prc,
@@ -138,6 +167,8 @@ exports.updateTransaction = async (req, res) => {
     const oldSymbol = txn.symbol;
     
     Object.assign(txn, req.body);
+    txn.name = cleanName(txn.name);
+    txn.symbol = cleanSymbol(txn.symbol);
     txn.quantity = Number(req.body.quantity);
     txn.price = Number(req.body.price);
     txn.totalAmount = txn.quantity * txn.price;
